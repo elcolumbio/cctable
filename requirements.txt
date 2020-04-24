@@ -1,0 +1,7 @@
+dash>1
+dash_daq >= 0.4
+dash_table>4.6
+
+flake8
+pytest
+pytest-cov

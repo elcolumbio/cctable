@@ -5,6 +5,7 @@ import dash_daq as daq
 import dash_table
 import dash_html_components as html
 import dash_core_components as dcc
+import pandas as pd
 
 from fastcounting import queries
 
@@ -24,27 +25,27 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(children=[
     html.Div(className='row float', children=[
-    dcc.DatePickerRange(
-        id='my-date-picker-range',
-        min_date_allowed=dt(1995, 8, 5),
-        max_date_allowed=dt(2021, 9, 19),
-        initial_visible_month=dt(2017, 8, 5),
-        end_date=dt(2017, 8, 25).date(),
-        className='four columns'),
-    daq.ToggleSwitch(
-        style={'float': 'left'},
-        id='toggle-theme',
-        color=theme['primary'],
-        label=['Light', 'Dark'],
-        value=True,
-        className='four columns'),
-    dcc.Dropdown(
-        id='my-account-dropdown',
-        style={'marginLeft': '40%'},
-        options=dropdown_options,
-        multi=True,
-        className='four columns')
-    ]),
+        dcc.DatePickerRange(
+            id='my-date-picker-range',
+            min_date_allowed=dt(1995, 8, 5),
+            max_date_allowed=dt(2021, 9, 19),
+            initial_visible_month=dt(2017, 8, 5),
+            end_date=dt(2017, 8, 25).date(),
+            className='four columns'),
+        daq.ToggleSwitch(
+            style={'float': 'left'},
+            id='toggle-theme',
+            color=theme['primary'],
+            label=['Light', 'Dark'],
+            value=True,
+            className='four columns'),
+        dcc.Dropdown(
+            id='my-account-dropdown',
+            style={'marginLeft': '40%'},
+            options=dropdown_options,
+            multi=True,
+            className='four columns')
+        ]),
     html.Br(),
     # you cant put this inside dark themes!
     dash_table.DataTable(
@@ -57,7 +58,7 @@ app.layout = html.Div(children=[
 # atomic and account view
 @app.callback(
     [dash.dependencies.Output('table', 'columns'),
-     dash.dependencies.Output('table', 'data'),],
+     dash.dependencies.Output('table', 'data')],
     [dash.dependencies.Input('my-account-dropdown', 'value'),
      dash.dependencies.Input('my-date-picker-range', 'start_date'),
      dash.dependencies.Input('my-date-picker-range', 'end_date')])
@@ -91,29 +92,29 @@ def load_udate_date(accounts, start_date, end_date):
 # dark theme table
 @app.callback(
     [dash.dependencies.Output('table',  'style_header'),
-    dash.dependencies.Output('table', 'style_cell'),
-    dash.dependencies.Output('table', 'style_data_conditional')],
+     dash.dependencies.Output('table', 'style_cell'),
+     dash.dependencies.Output('table', 'style_data_conditional')],
     [dash.dependencies.Input('toggle-theme', 'value')])
 def switch_bg_table(dark):
     """To do create index like generalid which has no wholes."""
     if(dark):
-        style_cell={
+        style_cell = {
             'backgroundColor': '#330026',
             'color': 'white'}
-        style_header={'backgroundColor': '#1a0013'}
-        style_data_conditional=[
+        style_header = {'backgroundColor': '#1a0013'}
+        style_data_conditional = [
             {'if': {'filter_query': "{generalID} is odd"},
-            'backgroundColor': '#4d0039',
-            'color': 'white',}]
+             'backgroundColor': '#4d0039',
+             'color': 'white'}]
     else:
-        style_cell={
+        style_cell = {
             'backgroundColor': 'white',
             'color': 'black'}
-        style_header={'backgroundColor': 'white'}
-        style_data_conditional=[
+        style_header = {'backgroundColor': 'white'}
+        style_data_conditional = [
             {'if': {'filter_query': "{generalID} is odd"},
-            'backgroundColor': '#ffe6f9',
-            'color': 'black',}]
+             'backgroundColor': '#ffe6f9',
+             'color': 'black'}]
     return [style_header, style_cell, style_data_conditional]
 
 

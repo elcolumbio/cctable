@@ -17,3 +17,4 @@ jupyter/chart\.svg
 *.csv
 
 /src/*
+settings.json

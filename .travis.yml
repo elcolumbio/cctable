@@ -5,11 +5,11 @@ python:
   - '3.8'
 cache: pip
 install:
-  - cd /home/travis/build/elcolumbio/fastcounting/
+  - cd /home/travis/build/elcolumbio/cctable/
   - pip install -r requirements.txt
   - pip install .
 
 script:
-  - flake8 ./fastcounting/
+  - flake8 ./cctable/
   - flake8 ./tests
   - pytest

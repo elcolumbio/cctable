@@ -13,6 +13,14 @@ params = ['general', 'account', 'text', 'amount',
           'kontenseite', 'batchID', 'date']
 params = ['account', 'text', 'amount', 'date']
 
+operators = [['ge ', '>='],
+             ['le ', '<='],
+             ['lt ', '<'],
+             ['gt ', '>'],
+             ['ne ', '!='],
+             ['eq ', '='],
+             ['contains '],
+             ['datestartswith ']]
 
 dropdown_options = queries.account_name_pairs()
 
@@ -54,8 +62,28 @@ app.layout = html.Div(children=[
     dash_table.DataTable(
         id='table',
         columns=([{'id': p, 'name': p} for p in params]),
-        data=[dict({param: 0 for param in params})],)
+        data=[dict({param: 0 for param in params})],
+        filter_action='custom',
+        filter_query='')
 ])
+
+
+# filter
+def filter_table(dff, filter):
+    filtering_expressions = filter.split(' && ')
+    for filter_part in filtering_expressions:
+        col_name, operator, filter_value = split_filter_part(filter_part)
+
+        if operator in ('eq', 'ne', 'lt', 'le', 'gt', 'ge'):
+            # these operators match pandas series operator method names
+            dff = dff.loc[getattr(dff[col_name], operator)(filter_value)]
+        elif operator == 'contains':
+            dff = dff.loc[dff[col_name].str.contains(filter_value)]
+        elif operator == 'datestartswith':
+            # this is a simplification of the front-end filtering logic,
+            # only works with complete fields in standard format
+            dff = dff.loc[dff[col_name].str.startswith(filter_value)]
+    return dff
 
 
 # atomic and account view
@@ -64,10 +92,12 @@ app.layout = html.Div(children=[
      dash.dependencies.Output('table', 'data')],
     [dash.dependencies.Input('my-account-dropdown', 'value'),
      dash.dependencies.Input('my-date-picker-range', 'start_date'),
-     dash.dependencies.Input('my-date-picker-range', 'end_date')])
-def load_udate_date(accounts, start_date, end_date):
+     dash.dependencies.Input('my-date-picker-range', 'end_date'),
+     dash.dependencies.Input('table', "filter_query")])
+def load_udate_date(accounts, start_date, end_date, filter):
+    print(filter)
     # number of max returns when we dont specify an account
-    count = 1000
+    count = None
     streamdata = []
     if accounts:
         for account in accounts:
@@ -76,7 +106,8 @@ def load_udate_date(accounts, start_date, end_date):
                 streamdata += queries.query_accountview(
                     account, start, end, count)
             else:
-                streamdata += queries.query_accountview(account, count)
+                streamdata += queries.query_accountview(
+                    account=account, count=count)
 
     elif start_date and end_date:
         start, end = queries.string_parser(start_date, end_date)
@@ -84,6 +115,7 @@ def load_udate_date(accounts, start_date, end_date):
     else:
         raise PreventUpdate
 
+    # format and sort data and return
     if streamdata:
         df = queries.stream_to_dataframe(streamdata)
         # since we have pontentially multiple accounts we need to sort it here.
@@ -91,12 +123,39 @@ def load_udate_date(accounts, start_date, end_date):
         df.sort_values('general', inplace=True)
         # subset data if you want all data for debugging outcomment this:
         df = df[params]
+        # filter dasta
+        df = filter_table(df, filter)
         format_columns = [{"name": i, "id": i} for i in df.columns]
         return format_columns, df.to_dict('records')
     else:
         # epmty data format for plotly html tables
         format_columns = [{"name": i, "id": i} for i in params]
         return format_columns, []
+
+
+# backend based filtering, here we parse the plotly filter language.
+def split_filter_part(filter_part):
+    for operator_type in operators:
+        for operator in operator_type:
+            if operator in filter_part:
+                name_part, value_part = filter_part.split(operator, 1)
+                name = name_part[name_part.find('{') + 1: name_part.rfind('}')]
+
+                value_part = value_part.strip()
+                v0 = value_part[0]
+                if (v0 == value_part[-1] and v0 in ("'", '"', '`')):
+                    value = value_part[1: -1].replace('\\' + v0, v0)
+                else:
+                    try:
+                        value = float(value_part)
+                    except ValueError:
+                        value = value_part
+
+                # word operators need spaces after them in the filter string,
+                # but we don't want these later
+                return name, operator_type[0].strip(), value
+
+    return [None] * 3
 
 
 # dark theme table

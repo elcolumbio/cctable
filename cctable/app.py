@@ -5,7 +5,6 @@ import dash_daq as daq
 import dash_table
 import dash_html_components as html
 import dash_core_components as dcc
-import pandas as pd
 
 from fastcounting import queries
 
@@ -63,30 +62,35 @@ app.layout = html.Div(children=[
      dash.dependencies.Input('my-date-picker-range', 'start_date'),
      dash.dependencies.Input('my-date-picker-range', 'end_date')])
 def load_udate_date(accounts, start_date, end_date):
+    # number of max returns when we dont specify an account
+    count = 1000
+    streamdata = []
     if accounts:
-        # at the moment we support only one account at a time
-        accounts = accounts[0]
-        if start_date and end_date:
-            start, end = queries.string_parser(start_date, end_date)
-            streamdata = queries.query_accountview(accounts, start, end)
-        else:
-            streamdata = queries.query_accountview(accounts)
-        if streamdata:
-            df = queries.stream_to_dataframe(streamdata)
-        else:
-            df = pd.DataFrame(columns=params)
-        format_columns = [{"name": i, "id": i} for i in df.columns]
-        return format_columns, df.to_dict('records')
+        for account in accounts:
+            if start_date and end_date:
+                start, end = queries.string_parser(start_date, end_date)
+                streamdata += queries.query_accountview(
+                    account, start, end, count)
+            else:
+                streamdata += queries.query_accountview(account, count)
 
     elif start_date and end_date:
         start, end = queries.string_parser(start_date, end_date)
-        streamdata = queries.query_atomicview(start, end)
-        df = queries.stream_to_dataframe(streamdata)
-        format_columns = [{"name": i, "id": i} for i in df.columns]
-        return format_columns, df.to_dict('records')
-
+        streamdata = queries.query_atomicview(start, end, count)
     else:
         raise PreventUpdate
+
+    if streamdata:
+        df = queries.stream_to_dataframe(streamdata)
+        # since we have pontentially multiple accounts we need to sort it here.
+        df['general'] = df['general'].astype(int)
+        df.sort_values('general', inplace=True)
+        format_columns = [{"name": i, "id": i} for i in df.columns]
+        return format_columns, df.to_dict('records')
+    else:
+        # epmty data format for plotly html tables
+        format_columns = [{"name": i, "id": i} for i in params]
+        return format_columns, []
 
 
 # dark theme table

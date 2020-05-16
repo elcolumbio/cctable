@@ -11,6 +11,7 @@ from fastcounting import queries
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 params = ['general', 'account', 'text', 'amount',
           'kontenseite', 'batchID', 'date']
+params = ['account', 'text', 'amount', 'date']
 
 
 dropdown_options = queries.account_name_pairs()
@@ -25,25 +26,28 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.layout = html.Div(children=[
     html.Div(className='row float', children=[
         dcc.DatePickerRange(
+            number_of_months_shown=3,
+            clearable=True,
             id='my-date-picker-range',
             min_date_allowed=dt(1995, 8, 5),
             max_date_allowed=dt(2021, 9, 19),
             initial_visible_month=dt(2017, 8, 5),
             end_date=dt(2017, 8, 25).date(),
-            className='four columns'),
-        daq.ToggleSwitch(
-            style={'float': 'left'},
-            id='toggle-theme',
-            color=theme['primary'],
-            label=['Light', 'Dark'],
-            value=True,
-            className='four columns'),
+            className='three columns'),
         dcc.Dropdown(
             id='my-account-dropdown',
-            style={'marginLeft': '40%'},
             options=dropdown_options,
             multi=True,
-            className='four columns')
+            className='seven columns'),
+        daq.ToggleSwitch(
+            color='#1a0013',
+            style={'margin-left': '3%'},
+            id='toggle-theme',
+            label='Darkmode',
+            labelPosition='bottom',
+            value=True,
+            className='one columns',
+            size=50),
         ]),
     html.Br(),
     # you cant put this inside dark themes!
@@ -85,6 +89,8 @@ def load_udate_date(accounts, start_date, end_date):
         # since we have pontentially multiple accounts we need to sort it here.
         df['general'] = df['general'].astype(int)
         df.sort_values('general', inplace=True)
+        # subset data if you want all data for debugging outcomment this:
+        df = df[params]
         format_columns = [{"name": i, "id": i} for i in df.columns]
         return format_columns, df.to_dict('records')
     else:

@@ -11,7 +11,7 @@ from fastcounting import queries
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 params = ['general', 'account', 'text', 'amount',
           'kontenseite', 'batchID', 'date']
-params = ['account', 'text', 'amount', 'date']
+params = ['account', 'text', 'amount', 'date', 'relations', 'general']
 
 operators = [['ge ', '>='],
              ['le ', '<='],
@@ -28,11 +28,15 @@ theme = {'dark': True,
          'detail': '#007439',
          'primary': '#00EA64',
          'secondary': '#6E6E6E'}
+
+# global state of our loaded data
+df = None
+
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 
 app.layout = html.Div(children=[
-    html.Div(className='row float', children=[
+    html.Div(className='row', children=[
         dcc.DatePickerRange(
             number_of_months_shown=3,
             clearable=True,
@@ -58,14 +62,36 @@ app.layout = html.Div(children=[
             size=50),
         ]),
     html.Br(),
+    # context table
+    dash_table.DataTable(
+        id='context',
+        columns=([{'id': p, 'name': p} for p in params]),
+        data=[dict({param: 0 for param in params})]
+        ),
     # you cant put this inside dark themes!
     dash_table.DataTable(
         id='table',
         columns=([{'id': p, 'name': p} for p in params]),
         data=[dict({param: 0 for param in params})],
+        row_selectable='single',
         filter_action='custom',
-        filter_query='')
+        filter_query=''),
 ])
+
+
+# context
+@app.callback(
+    [dash.dependencies.Output('context', 'columns'),
+     dash.dependencies.Output('context', 'data')],
+    [dash.dependencies.Input('table', 'selected_rows')])
+def load_update_context(selected_row):
+    if selected_row is not None and df is not None:
+        format_columns = [{"name": i, "id": i} for i in params]
+        generalid = df.iloc[selected_row[0]:selected_row[0]+1]['general']
+        data = queries.general_context(int(generalid))
+        return format_columns, data
+    else:
+        raise PreventUpdate
 
 
 # filter
@@ -78,7 +104,7 @@ def filter_table(dff, filter):
             # these operators match pandas series operator method names
             dff = dff.loc[getattr(dff[col_name], operator)(filter_value)]
         elif operator == 'contains':
-            dff = dff.loc[dff[col_name].str.contains(filter_value)]
+            dff = dff.loc[dff[col_name].str.contains(filter_value, case=False)]
         elif operator == 'datestartswith':
             # this is a simplification of the front-end filtering logic,
             # only works with complete fields in standard format
@@ -94,7 +120,7 @@ def filter_table(dff, filter):
      dash.dependencies.Input('my-date-picker-range', 'start_date'),
      dash.dependencies.Input('my-date-picker-range', 'end_date'),
      dash.dependencies.Input('table', "filter_query")])
-def load_udate_date(accounts, start_date, end_date, filter):
+def load_update_date(accounts, start_date, end_date, filter):
     print(filter)
     # number of max returns when we dont specify an account
     count = None
@@ -116,6 +142,7 @@ def load_udate_date(accounts, start_date, end_date, filter):
         raise PreventUpdate
 
     # format and sort data and return
+    global df
     if streamdata:
         df = queries.stream_to_dataframe(streamdata)
         # since we have pontentially multiple accounts we need to sort it here.
@@ -128,6 +155,7 @@ def load_udate_date(accounts, start_date, end_date, filter):
         format_columns = [{"name": i, "id": i} for i in df.columns]
         return format_columns, df.to_dict('records')
     else:
+        df = None
         # epmty data format for plotly html tables
         format_columns = [{"name": i, "id": i} for i in params]
         return format_columns, []
